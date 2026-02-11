@@ -4,21 +4,23 @@ import chalk from "chalk";
 import multer from "multer";
 import pdf from "pdf-parse";
 import fs from "fs";
-import { embeddingCreate } from "./embedding.js";
+import { storeChunks, ask } from "./embeddingStore.js";
 const upload = multer({ dest: "uploads/" });
 const app = express();
 const port = 3000;
-
+app.use(express.urlencoded({ extended: true }));
 app.get("/", (req, res) => {
   res.send("Hello World!");
 });
 const pdfingest = async (req: Request, res: Response) => {
   try {
     let dataBuffer = fs.readFileSync(req.file!.path);
-    pdf(dataBuffer).then((data) => {
-      console.log(chalk.bgBlueBright(chunkText(data.text)));
-      res.status(200).send(data.text);
-    });
+    const data = await pdf(dataBuffer);
+    const chunks = chunkText(data.text);
+    //   console.log(chalk.bgBlueBright(chunkText(data.text)));
+    await storeChunks(chunks); //Text stored as embedding in pinecone vector store using integrated embedding model
+    const answer = await ask(req.body.question);
+    res.status(200).send(answer);
   } catch (error) {
     console.log(chalk.red(error));
   }
